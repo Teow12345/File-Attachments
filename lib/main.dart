@@ -5,12 +5,11 @@ import 'package:path/path.dart' as Path;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:http/http.dart' as http; // Import for making HTTP requests
+import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'dart:typed_data';
-import 'package:image_picker/image_picker.dart';
+import 'package:open_file/open_file.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +34,8 @@ class _MyHomePageState extends State<MyHomePage> {
   List<AttachedFile> attachedFiles = [];
   bool _isLoading = false;
   bool _isPickingDocument = false;
-  bool _isImagePickerActive = false; // New variable to track image picker state
+  bool _isImagePickerActive = false;
+
   Future<void> _pickImage(ImageSource source) async {
     if (_isImagePickerActive) {
       return; // Exit if already picking
@@ -51,7 +51,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
       // Save the captured image directly to the photo album
       await ImageGallerySaver.saveFile(pickedImage.path);
-
     }
 
     setState(() {
@@ -70,7 +69,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _processFile(File(filePath));
 
       // Replace with your actual image URL
-      String imageUrl = 'https://your-actual-image-url.com/your-image.jpg';//can replace with actual url you want
+      String imageUrl = 'https://your-actual-image-url.com/your-image.jpg'; // Can replace with an actual URL you want
       _saveNetworkImage(imageUrl);
     }
   }
@@ -93,7 +92,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<File> _compressImage(File imageFile) async {
     final appDir = await getTemporaryDirectory();
-    final targetPath = Path.join(appDir.path, 'compressed_${Path.basename(imageFile.path)}');
+    final targetPath =
+    Path.join(appDir.path, 'compressed_${Path.basename(imageFile.path)}');
     final compressedFile = await imageFile.copy(targetPath);
     return compressedFile;
   }
@@ -101,12 +101,14 @@ class _MyHomePageState extends State<MyHomePage> {
   String _addPrefixToFilename(String originalName) {
     return 'ETMS_$originalName';
   }
+
   Future<void> _saveNetworkImage(String imageUrl) async {
     try {
       final response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode == 200) {
         final bytes = response.bodyBytes;
-        final result = await ImageGallerySaver.saveImage(Uint8List.fromList(bytes));
+        final result =
+        await ImageGallerySaver.saveImage(Uint8List.fromList(bytes));
         if (result['isSuccess']) {
           print('Image saved to gallery');
         } else {
@@ -125,7 +127,8 @@ class _MyHomePageState extends State<MyHomePage> {
       final response = await http.get(Uri.parse(videoUrl));
       if (response.statusCode == 200) {
         final bytes = response.bodyBytes;
-        final result = await ImageGallerySaver.saveImage(Uint8List.fromList(bytes));
+        final result =
+        await ImageGallerySaver.saveImage(Uint8List.fromList(bytes));
         if (result['isSuccess']) {
           print('Video saved to gallery');
         } else {
@@ -139,43 +142,108 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-
   void _openAttachment(BuildContext context, String filePath) {
     final extension = filePath.split('.').last.toLowerCase();
     if (extension == 'jpg' || extension == 'png') {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (BuildContext context) {
-            return Scaffold(
-              appBar: AppBar(title: Text('Image Preview')),
-              body: Center(
-                child: PhotoView(
-                  imageProvider: FileImage(File(filePath)),
-                ),
+      // For JPG and PNG files, show a dialog to ask the user how to open the file.
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Open Image File'),
+            content: Text('How would you like to open this image file?'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  OpenFile.open(filePath); // Use open_file to open the image file
+                },
+                child: Text('Open with Default App'),
               ),
-            );
-          },
-        ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Add code here to handle other ways of opening the image file, if needed.
+                },
+                child: Text('Other Options'),
+              ),
+            ],
+          );
+        },
       );
     } else if (extension == 'pdf') {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (BuildContext context) {
-            return Scaffold(
-              appBar: AppBar(title: Text('PDF Preview')),
-              body: PDFView(
-                filePath: filePath,
-                enableSwipe: true,
-                swipeHorizontal: true,
-                autoSpacing: false,
-                pageSnap: true,
+      // For PDF files, show a dialog to ask the user how to open the file.
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Open PDF File'),
+            content: Text('How would you like to open this PDF file?'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Use your existing code to open PDF files here
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (BuildContext context) {
+                        return Scaffold(
+                          appBar: AppBar(title: Text('PDF Preview')),
+                          body: PDFView(
+                            filePath: filePath,
+                            enableSwipe: true,
+                            swipeHorizontal: true,
+                            autoSpacing: false,
+                            pageSnap: true,
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+                child: Text('Open with Default PDF Viewer'),
               ),
-            );
-          },
-        ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Add code here to handle other ways of opening the PDF file, if needed.
+                },
+                child: Text('Other Options'),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // For other file types, show a dialog for the user to choose how to open the file.
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Open File'),
+            content: Text('How would you like to open this file?'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  OpenFile.open(filePath); // Use open_file to open the file
+                },
+                child: Text('Open with Default App'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Add code here to handle other ways of opening the file, if needed.
+                },
+                child: Text('Other Options'),
+              ),
+            ],
+          );
+        },
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -198,10 +266,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ListTile(
             title: Text('Photo Album'),
             leading: Icon(Icons.photo),
-            onTap: () {
-              _saveNetworkImage('https://www.google.com/url?sa=i&url=https%3A%2F%2Fsallysbakingaddiction.com%2Ftriple-chocolate-layer-cake%2F&psig=AOvVaw1CCXjwkmBMQmZbK6dWlC92&ust=1693044883346000&source=images&cd=vfe&opi=89978449&ved=0CBAQjRxqFwoTCPiMm-nJ94ADFQAAAAAdAAAAABAT/.jpg');
-              _saveNetworkVideo('https://sample-url.com/video.mp4');
-            },
+            onTap: () => _pickImage(ImageSource.gallery), // Use ImageSource.gallery
           ),
           ListTile(
             title: Text('Document'),
