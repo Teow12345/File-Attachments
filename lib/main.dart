@@ -4,12 +4,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as Path;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:photo_view/photo_view.dart';
+//import 'package:photo_view/photo_view.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'dart:typed_data';
+//import 'dart:typed_data';
 import 'package:open_file/open_file.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image/image.dart' as img;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,10 +47,38 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final pickedImage = await ImagePicker().pickImage(source: source);
     if (pickedImage != null) {
-      await _processFile(File(pickedImage.path));
+      final originalImagePath = pickedImage.path ?? '';
+      if (originalImagePath.isNotEmpty) {
+        final originalFile = File(originalImagePath);
+        final originalFileSize = originalFile.lengthSync();
+        print('Original Image Data Size: ${_formatFileSize(originalFileSize)}');
 
-      // Save the captured image directly to the photo album
-      await ImageGallerySaver.saveFile(pickedImage.path);
+        // Load the image and check if it's not null
+        final image = img.decodeImage(originalFile.readAsBytesSync());
+        if (image != null) {
+          // Compress the image
+          final compressedImage = img.copyResize(image, width: 800, height: 800); // Adjust dimensions as needed
+          final compressedImagePath = originalImagePath.replaceAll('.jpg', '_compressed.jpg'); // Modify the file name as needed
+
+          // Save the compressed image
+          File(compressedImagePath).writeAsBytesSync(img.encodeJpg(compressedImage, quality: 85)); // Adjust the quality as needed
+
+          final compressedFileSize = File(compressedImagePath).lengthSync();
+          print('Compressed Image Data Size: ${_formatFileSize(compressedFileSize)}');
+
+          // Add the compressed image to the attachedFiles list
+          setState(() {
+            attachedFiles.add(AttachedFile(
+              name: _addPrefixToFilename(Path.basename(compressedImagePath)),
+              path: compressedImagePath,
+              size: compressedFileSize,
+            ));
+          });
+
+          // Rest of your code
+          await ImageGallerySaver.saveFile(compressedImagePath);
+        }
+      }
     }
 
     setState(() {
@@ -66,80 +94,57 @@ class _MyHomePageState extends State<MyHomePage> {
 
     if (result != null) {
       final filePath = result.files.single.path!;
-      _processFile(File(filePath));
-
-      // Replace with your actual image URL
-      String imageUrl = 'https://your-actual-image-url.com/your-image.jpg'; // Can replace with an actual URL you want
-      _saveNetworkImage(imageUrl);
+      // Calculate and display the original file size before adding it to attachedFiles
+      final originalFileSize = File(filePath).lengthSync();
+      // Process the file and add it to attachedFiles
+      await _processFile(File(filePath));
     }
   }
+
 
   Future<void> _processFile(File file) async {
     setState(() {
       _isLoading = true;
     });
 
+    // Calculate and display the original file size before compression
+    final originalFileSize = file.lengthSync();
+    print('Original File Size: ${_formatFileSize(originalFileSize)}');
+
     final compressedFile = await _compressImage(file);
+
+    // Calculate and display the compressed file size
+    final compressedFileSize = compressedFile.lengthSync();
+    print('Compressed File Size: ${_formatFileSize(compressedFileSize)}');
+
     setState(() {
       attachedFiles.add(AttachedFile(
         name: _addPrefixToFilename(Path.basename(compressedFile.path)),
         path: compressedFile.path,
-        size: compressedFile.lengthSync(),
+        size: compressedFileSize,
       ));
       _isLoading = false;
     });
   }
 
   Future<File> _compressImage(File imageFile) async {
+    final originalImage = img.decodeImage(imageFile.readAsBytesSync());
+    if (originalImage == null) {
+      throw Exception('Failed to decode the original image.');
+    }
+
+    final compressedImage = img.copyResize(originalImage, width: 1000); // Adjust the width as needed
+
     final appDir = await getTemporaryDirectory();
-    final targetPath =
-    Path.join(appDir.path, 'compressed_${Path.basename(imageFile.path)}');
-    final compressedFile = await imageFile.copy(targetPath);
-    return compressedFile;
+    final targetPath = Path.join(appDir.path, 'compressed_${Path.basename(imageFile.path)}');
+
+    File(targetPath).writeAsBytesSync(img.encodeJpg(compressedImage, quality: 40)); // Adjust the quality as needed
+
+    return File(targetPath);
   }
 
   String _addPrefixToFilename(String originalName) {
     return 'ETMS_$originalName';
-  }
-
-  Future<void> _saveNetworkImage(String imageUrl) async {
-    try {
-      final response = await http.get(Uri.parse(imageUrl));
-      if (response.statusCode == 200) {
-        final bytes = response.bodyBytes;
-        final result =
-        await ImageGallerySaver.saveImage(Uint8List.fromList(bytes));
-        if (result['isSuccess']) {
-          print('Image saved to gallery');
-        } else {
-          print('Failed to save image');
-        }
-      } else {
-        print('Failed to fetch image. Status code: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error fetching image: $e');
-    }
-  }
-
-  Future<void> _saveNetworkVideo(String videoUrl) async {
-    try {
-      final response = await http.get(Uri.parse(videoUrl));
-      if (response.statusCode == 200) {
-        final bytes = response.bodyBytes;
-        final result =
-        await ImageGallerySaver.saveImage(Uint8List.fromList(bytes));
-        if (result['isSuccess']) {
-          print('Video saved to gallery');
-        } else {
-          print('Failed to save video');
-        }
-      } else {
-        print('Failed to fetch video. Status code: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error fetching video: $e');
-    }
   }
 
   void _openAttachment(BuildContext context, String filePath) {
@@ -243,7 +248,6 @@ class _MyHomePageState extends State<MyHomePage> {
       );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
