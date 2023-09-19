@@ -302,15 +302,29 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
-
+  // This function takes an integer input 'bytes' representing a file size in bytes.
   String _formatFileSize(int bytes) {
+    // Check if the file size is less than 1024 bytes (1 KB).
+
+    // If it is, return the file size in bytes with 'B' (bytes) suffix.
     if (bytes < 1024) return '$bytes B';
+    // Check if the file size is less than 1048576 bytes (1 MB).
+
+    // If it is, calculate the size in kilobytes (KB) by dividing by 1024.
+    // Convert the result to a string with two decimal places using 'toStringAsFixed'.
+    // Return the formatted size with 'KB' (kilobytes) suffix.
     if (bytes < 1048576) return '${(bytes / 1024).toStringAsFixed(2)} KB';
+
     return '${(bytes / 1048576).toStringAsFixed(2)} MB';
+    // If the file size is greater than or equal to 1048576 bytes (1 MB).
+
+    // Calculate the size in megabytes (MB) by dividing by 1048576.
+    // Convert the result to a string with two decimal places using 'toStringAsFixed'.
+    // Return the formatted size with 'MB' (megabytes) suffix.
   }
 }
 
-class AttachedFile {
+  class AttachedFile {
   final String name;
   final String path;
   final int size;
