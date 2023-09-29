@@ -324,7 +324,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-  class AttachedFile {
+class AttachedFile {
   final String name;
   final String path;
   final int size;
